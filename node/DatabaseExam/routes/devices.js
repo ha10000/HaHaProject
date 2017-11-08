@@ -30,6 +30,7 @@ var client  = mqtt.connect('mqtt://192.168.0.35');
 client.on('connect', function () {
   client.subscribe('test');
   client.subscribe('arduino');
+  client.subscribe('mq2');	// haha 1108
   client.publish('test', 'Hello mqtt');
 });
  
@@ -43,6 +44,13 @@ client.on('message', function (topic, message) {
   	json.sensor = 'dht11';
   	json.created_at = new Date();
   	dht11Logs.save(json, function(err, result){});
+  } else if(topic == 'mq2'){
+  	var mq2Logs = dbObj.collection('mq2Logs');
+  	var json = JSON.parse(message.toString());
+  	json.device = 'arduino';
+  	json.sensor = 'mq2';
+  	json.created_at = new Date();
+  	mq2Logs.save(json, function(err, result){});
   }
   // client.end();
 });
@@ -57,12 +65,44 @@ router.post('/buzzer/:flag', function(req, res, next){
 		res.send(JSON.stringify({buzzer:'off'}));
 	}
 });
+router.post('/led/:color/:flag', function(req, res, next){
+	var flag = '';
+	if( req.params.color == 'red'){
+		if( req.params.flag == 'on') flag = '2';
+		else flag = '3';
+	}else if(req.params.color == 'yellow'){
+		if( req.params.flag == 'on') flag = '4';
+		else flag = '5';
+	}
+	else{
+		if( req.params.flag == 'on') flag = '6';
+		else flag = '7';
+	}
+	if( flag =='2' || flag =='4' || flag =='6'){
+		client.publish("test", '3');
+		client.publish("test", '5');
+		client.publish("test", '7');	
+	}
+	client.publish("test", flag);
+	res.send(JSON.stringify({color:req.params.color, led:req.params.flag}));
+
+});
 
 //------------
 router.get('/:device/:sensor', function(req, res, next){
 	var dht11Logs = dbObj.collection('dht11Logs');
 	dht11Logs.find({device:req.params.device,sensor:req.params.sensor}).
 	toArray(function(err, results){
+		if(err) res.send(JSON.stringify(err));
+		else res.send(JSON.stringify(results));
+	});
+});
+//-------
+//------------
+router.get('/:device/:mq2', function(req, res, next){
+	var mq2Logs = dbObj.collection('mq2Logs');
+	dht11Logs.find({device:req.params.device,mq2:req.params.mq2}).
+	limit(100).sort({created_at:-1}).toArray(function(err, results){
 		if(err) res.send(JSON.stringify(err));
 		else res.send(JSON.stringify(results));
 	});
